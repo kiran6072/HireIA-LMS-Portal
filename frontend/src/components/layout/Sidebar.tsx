@@ -11,13 +11,14 @@ import {
   Settings,
   GraduationCap,
   BarChart3,
+  LucideIcon,
 } from 'lucide-react';
 import type { Role } from '@/types';
 
 interface NavItem {
   to: string;
   label: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
 }
 
 const adminNav: NavItem[] = [
