@@ -11,16 +11,12 @@ export const getCourse = (id: string) =>
 
 export const createCourse = (payload: FormData) =>
   api
-    .post<{ success: boolean; message: string; course: Course }>('/courses', payload, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    .post<{ success: boolean; message: string; course: Course }>('/courses', payload)
     .then((r) => r.data);
 
 export const updateCourse = (id: string, payload: FormData) =>
   api
-    .patch<{ success: boolean; message: string; course: Course }>(`/courses/${id}`, payload, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    .patch<{ success: boolean; message: string; course: Course }>(`/courses/${id}`, payload)
     .then((r) => r.data);
 
 export const deleteCourse = (id: string) => api.delete(`/courses/${id}`).then((r) => r.data);
@@ -46,15 +42,12 @@ export const deleteModule = (id: string) => api.delete(`/modules/${id}`).then((r
 
 export const createLesson = (moduleId: string, payload: FormData) =>
   api
-    .post<{ success: boolean; lesson: Lesson }>(`/modules/${moduleId}/lessons`, payload, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    .post<{ success: boolean; lesson: Lesson }>(`/modules/${moduleId}/lessons`, payload)
     .then((r) => r.data);
 
 export const updateLesson = (id: string, payload: FormData | Record<string, unknown>) => {
-  const isForm = payload instanceof FormData;
   return api
-    .patch(`/lessons/${id}`, payload, isForm ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined)
+    .patch(`/lessons/${id}`, payload)
     .then((r) => r.data);
 };
 
