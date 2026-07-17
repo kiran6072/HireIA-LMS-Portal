@@ -51,6 +51,7 @@ exports.getCourse = catchAsync(async (req, res, next) => {
 
 // POST /api/courses  (admin)
 exports.createCourse = catchAsync(async (req, res, next) => {
+  console.log('[DEBUG] createCourse hit. File:', req.file ? req.file.originalname : 'none');
   const { title, description, category, level, durationWeeks } = req.body;
   if (!title || !description) return next(new ApiError(400, 'Title and description are required.'));
 
@@ -63,6 +64,7 @@ exports.createCourse = catchAsync(async (req, res, next) => {
     thumbnailUrl: req.file ? req.file.path : '',
     createdBy: req.user.id,
   });
+  console.log('[DEBUG] Course.create() finished successfully.');
 
   res.status(201).json({ success: true, message: 'Course created successfully.', course });
 });
