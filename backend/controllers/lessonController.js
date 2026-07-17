@@ -16,6 +16,8 @@ exports.createLesson = catchAsync(async (req, res, next) => {
   const { title, type, order, notesContent } = req.body;
   if (!title || !type) return next(new ApiError(400, 'Lesson title and type are required.'));
 
+  const file = req.files?.video?.[0] || req.files?.document?.[0];
+
   const lessonData = {
     module: module._id,
     course: module.course,
@@ -29,10 +31,10 @@ exports.createLesson = catchAsync(async (req, res, next) => {
     if (!notesContent) return next(new ApiError(400, 'Notes content is required for type "notes".'));
     lessonData.notesContent = notesContent;
   } else if (type === 'video' || FILE_TYPES.includes(type)) {
-    if (!req.file) return next(new ApiError(400, `A file upload is required for lesson type "${type}".`));
-    lessonData.fileUrl = req.file.path;
-    lessonData.filePublicId = req.file.filename;
-    lessonData.fileSizeBytes = req.file.size;
+    if (!file) return next(new ApiError(400, `A file upload is required for lesson type "${type}".`));
+    lessonData.fileUrl = file.path;
+    lessonData.filePublicId = file.filename;
+    lessonData.fileSizeBytes = file.size;
     if (type === 'video' && req.body.durationSeconds) {
       lessonData.durationSeconds = Number(req.body.durationSeconds);
     }

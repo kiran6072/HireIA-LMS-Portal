@@ -84,4 +84,4 @@ const uploadImage = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-module.exports = { cloudinary, uploadVideo, uploadDocument, uploadAny, uploadImage };
+module.exports = { cloudinary, uploadVideo, uploadDocument, uploadAny, uploadImage, uploadLesson };
