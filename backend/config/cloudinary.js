@@ -84,4 +84,16 @@ const uploadImage = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+const uploadLesson = multer({
+  storage: makeStorage(),
+  fileFilter: (req, file, cb) => {
+    if (file.fieldname === 'video') return fileFilterFor('video')(req, file, cb);
+    if (file.fieldname === 'document') return fileFilterFor('document')(req, file, cb);
+    cb(new Error(`Unexpected field: ${file.fieldname}`), false);
+  },
+  limits: { fileSize: 500 * 1024 * 1024 },
+}).fields([
+  { name: 'video', maxCount: 1 },
+  { name: 'document', maxCount: 1 },
+]);
 module.exports = { cloudinary, uploadVideo, uploadDocument, uploadAny, uploadImage, uploadLesson };
