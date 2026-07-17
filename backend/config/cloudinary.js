@@ -32,12 +32,15 @@ const folderFor = (fieldname) => {
 const makeStorage = () =>
   new CloudinaryStorage({
     cloudinary,
-    params: async (req, file) => ({
-      folder: folderFor(file.fieldname),
-      resource_type: resourceTypeFor(file.mimetype),
-      public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '').replace(/\s+/g, '_')}`,
-      use_filename: true,
-    }),
+    params: async (req, file) => {
+      console.log('[DEBUG] Cloudinary params() called for:', file.fieldname, file.originalname, file.mimetype);
+      return {
+        folder: folderFor(file.fieldname),
+        resource_type: resourceTypeFor(file.mimetype),
+        public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '').replace(/\s+/g, '_')}`,
+        use_filename: true,
+      };
+    },
   });
 
 const ALLOWED_MIME = {
@@ -87,6 +90,7 @@ const uploadImage = multer({
 const uploadLesson = multer({
   storage: makeStorage(),
   fileFilter: (req, file, cb) => {
+    console.log('[DEBUG] uploadLesson fileFilter called for field:', file.fieldname, file.mimetype);
     if (file.fieldname === 'video') return fileFilterFor('video')(req, file, cb);
     if (file.fieldname === 'document') return fileFilterFor('document')(req, file, cb);
     cb(new Error(`Unexpected field: ${file.fieldname}`), false);
