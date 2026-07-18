@@ -63,6 +63,15 @@ app.use('/api/auth/forgot-password', authLimiter);
 app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'HireIA LMS API is running.', timestamp: new Date().toISOString() });
 });
+app.get('/api/debug-cloudinary', async (req, res) => {
+  try {
+    const cloudinary = require('cloudinary').v2;
+    const result = await cloudinary.api.ping();
+    res.status(200).json({ success: true, result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
