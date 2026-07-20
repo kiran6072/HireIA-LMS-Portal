@@ -72,6 +72,17 @@ app.get('/api/debug-cloudinary', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+app.get('/api/debug-cloudinary-upload', async (req, res) => {
+  try {
+    const cloudinary = require('cloudinary').v2;
+    // A tiny 1x1 red pixel PNG, base64-encoded
+    const tinyImage = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    const result = await cloudinary.uploader.upload(tinyImage, { folder: 'hireia/debug-test' });
+    res.status(200).json({ success: true, url: result.secure_url });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
