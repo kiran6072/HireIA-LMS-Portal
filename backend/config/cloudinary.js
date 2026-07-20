@@ -1,7 +1,7 @@
 const cloudinary = require('cloudinary').v2;
-const cloudinaryStorageModule = require('multer-storage-cloudinary');
-const CloudinaryStorage = cloudinaryStorageModule.CloudinaryStorage || cloudinaryStorageModule;
 const multer = require('multer');
+const { Readable } = require('stream');
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -9,8 +9,6 @@ cloudinary.config({
   timeout: 60000,
 });
 
-// Determine resource_type based on mimetype so PDFs/DOCX/ZIP/PPT store correctly as 'raw'
-// and videos/images store as 'video'/'image'.
 const resourceTypeFor = (mimetype) => {
   if (mimetype.startsWith('video/')) return 'video';
   if (mimetype.startsWith('image/')) return 'image';
@@ -26,23 +24,10 @@ const folderFor = (fieldname) => {
     assignmentSubmission: 'hireia/assignments/submissions',
     offerLetter: 'hireia/placements/offer-letters',
     resume: 'hireia/students/resumes',
+    thumbnail: 'hireia/courses/thumbnails',
   };
   return map[fieldname] || 'hireia/misc';
 };
-
-const makeStorage = () =>
-  new CloudinaryStorage({
-    cloudinary,
-    params: async (req, file) => {
-      console.log('[DEBUG] Cloudinary params() called for:', file.fieldname, file.originalname, file.mimetype);
-      return {
-        folder: folderFor(file.fieldname),
-        resource_type: resourceTypeFor(file.mimetype),
-        public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '').replace(/\s+/g, '_')}`,
-        use_filename: true,
-      };
-    },
-  });
 
 const ALLOWED_MIME = {
   video: ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'],
@@ -65,33 +50,68 @@ const fileFilterFor = (kind) => (req, file, cb) => {
   cb(new Error(`Unsupported file type for ${kind}: ${file.mimetype}`), false);
 };
 
-const uploadVideo = multer({
-  storage: makeStorage(),
-  fileFilter: fileFilterFor('video'),
-  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
-});
+const publicIdFor = (file) =>
+  `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '').replace(/\s+/g, '_')}`;
 
-const uploadDocument = multer({
-  storage: makeStorage(),
-  fileFilter: fileFilterFor('document'),
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
-});
+// Uploads a buffer directly to Cloudinary using the official SDK (no third-party glue package)
+const uploadBufferToCloudinary = (buffer, options) =>
+  new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(options, (err, result) => {
+      if (err) return reject(err);
+      resolve(result);
+    });
+    Readable.from(buffer).pipe(uploadStream);
+  });
 
-const uploadAny = multer({
-  storage: makeStorage(),
-  limits: { fileSize: 500 * 1024 * 1024 },
-});
+const uploadFileToCloudinary = async (file) => {
+  const result = await uploadBufferToCloudinary(file.buffer, {
+    folder: folderFor(file.fieldname),
+    resource_type: resourceTypeFor(file.mimetype),
+    public_id: publicIdFor(file),
+    use_filename: true,
+  });
+  // Reshape the file object so existing controllers (which read file.path/.filename/.size) keep working unchanged
+  file.path = result.secure_url;
+  file.filename = result.public_id;
+  file.size = result.bytes;
+};
 
-const uploadImage = multer({
-  storage: makeStorage(),
-  fileFilter: fileFilterFor('image'),
-  limits: { fileSize: 10 * 1024 * 1024 },
-});
+// Wraps a multer (memory storage) middleware so that after multer parses the request,
+// any uploaded file(s) get pushed to Cloudinary before the route handler runs.
+const withCloudinaryUpload = (multerMiddleware) => (req, res, next) => {
+  multerMiddleware(req, res, async (err) => {
+    if (err) return next(err);
+    try {
+      if (req.file) {
+        await uploadFileToCloudinary(req.file);
+      }
+      if (req.files) {
+        const allFiles = Array.isArray(req.files) ? req.files : Object.values(req.files).flat();
+        await Promise.all(allFiles.map(uploadFileToCloudinary));
+      }
+      next();
+    } catch (uploadErr) {
+      next(uploadErr);
+    }
+  });
+};
 
-const uploadLesson = multer({
-  storage: makeStorage(),
+const makeUploader = (kind, limits) => {
+  const base = multer({ storage: multer.memoryStorage(), fileFilter: fileFilterFor(kind), limits });
+  return {
+    single: (fieldName) => withCloudinaryUpload(base.single(fieldName)),
+    fields: (fieldsArr) => withCloudinaryUpload(base.fields(fieldsArr)),
+  };
+};
+
+const uploadVideo = makeUploader('video', { fileSize: 500 * 1024 * 1024 });
+const uploadDocument = makeUploader('document', { fileSize: 100 * 1024 * 1024 });
+const uploadAny = makeUploader('any', { fileSize: 500 * 1024 * 1024 });
+const uploadImage = makeUploader('image', { fileSize: 10 * 1024 * 1024 });
+
+const lessonBaseMulter = multer({
+  storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
-    console.log('[DEBUG] uploadLesson fileFilter called for field:', file.fieldname, file.mimetype);
     if (file.fieldname === 'video') return fileFilterFor('video')(req, file, cb);
     if (file.fieldname === 'document') return fileFilterFor('document')(req, file, cb);
     cb(new Error(`Unexpected field: ${file.fieldname}`), false);
@@ -101,4 +121,7 @@ const uploadLesson = multer({
   { name: 'video', maxCount: 1 },
   { name: 'document', maxCount: 1 },
 ]);
+
+const uploadLesson = withCloudinaryUpload(lessonBaseMulter);
+
 module.exports = { cloudinary, uploadVideo, uploadDocument, uploadAny, uploadImage, uploadLesson };
