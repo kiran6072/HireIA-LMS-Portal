@@ -50,8 +50,11 @@ const fileFilterFor = (kind) => (req, file, cb) => {
   cb(new Error(`Unsupported file type for ${kind}: ${file.mimetype}`), false);
 };
 
-const publicIdFor = (file) =>
-  `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '').replace(/\s+/g, '_')}`;
+const publicIdFor = (file) => {
+  const ext = file.originalname.match(/\.[^/.]+$/)?.[0] || '';
+  const nameWithoutExt = file.originalname.replace(/\.[^/.]+$/, '').replace(/\s+/g, '_');
+  return `${Date.now()}-${nameWithoutExt}${ext}`;
+};
 
 // Uploads a buffer directly to Cloudinary using the official SDK (no third-party glue package)
 const uploadBufferToCloudinary = (buffer, options) =>
